@@ -90,6 +90,7 @@ public class MobileNetworkSettings extends PreferenceActivity
     //String keys for preference lookup
     private static final String BUTTON_PREFERED_NETWORK_MODE = "preferred_network_mode_key";
     private static final String BUTTON_ROAMING_KEY = "button_roaming_key";
+    private static final String BUTTON_NATIONAL_ROAMING_KEY = "button_national_roaming_key";
     private static final String BUTTON_CDMA_LTE_DATA_SERVICE_KEY = "cdma_lte_data_service_key";
     private static final String BUTTON_ENABLED_NETWORKS_KEY = "enabled_networks_key";
     private static final String BUTTON_4G_LTE_KEY = "enhanced_4g_lte";
@@ -112,6 +113,7 @@ public class MobileNetworkSettings extends PreferenceActivity
     private ListPreference mButtonPreferredNetworkMode;
     private ListPreference mButtonEnabledNetworks;
     private RestrictedSwitchPreference mButtonDataRoam;
+    private RestrictedSwitchPreference mButtonNationalDataRoam;
     private SwitchPreference mButton4glte;
     private Preference mLteDataServicePref;
 
@@ -245,6 +247,8 @@ public class MobileNetworkSettings extends PreferenceActivity
             return true;
         } else if (preference == mButtonDataRoam) {
             // Do not disable the preference screen if the user clicks Data roaming.
+            return true;
+        } else if (preference == mButtonNationalDataRoam) {
             return true;
         } else {
             // if the button is anything but the simple toggle preference,
@@ -452,11 +456,14 @@ public class MobileNetworkSettings extends PreferenceActivity
         PreferenceScreen prefSet = getPreferenceScreen();
 
         mButtonDataRoam = (RestrictedSwitchPreference) prefSet.findPreference(BUTTON_ROAMING_KEY);
+        mButtonNationalDataRoam = (RestrictedSwitchPreference) prefSet.findPreference(
+                BUTTON_NATIONAL_ROAMING_KEY);
         mButtonPreferredNetworkMode = (ListPreference) prefSet.findPreference(
                 BUTTON_PREFERED_NETWORK_MODE);
         mButtonEnabledNetworks = (ListPreference) prefSet.findPreference(
                 BUTTON_ENABLED_NETWORKS_KEY);
         mButtonDataRoam.setOnPreferenceChangeListener(this);
+        mButtonNationalDataRoam.setOnPreferenceChangeListener(this);
 
         mLteDataServicePref = prefSet.findPreference(BUTTON_CDMA_LTE_DATA_SERVICE_KEY);
 
@@ -496,6 +503,9 @@ public class MobileNetworkSettings extends PreferenceActivity
         // app to change this setting's backend, and re-launch this settings app
         // and the UI state would be inconsistent with actual state
         mButtonDataRoam.setChecked(mPhone.getDataRoamingEnabled());
+        mButtonNationalDataRoam.setChecked(android.provider.Settings.System.getInt(
+                mPhone.getContext().getContentResolver(),
+                android.provider.Settings.System.MVNO_ROAMING, 0) == 1);
 
         if (getPreferenceScreen().findPreference(BUTTON_PREFERED_NETWORK_MODE) != null
                 || getPreferenceScreen().findPreference(BUTTON_ENABLED_NETWORKS_KEY) != null)  {
@@ -536,9 +546,11 @@ public class MobileNetworkSettings extends PreferenceActivity
         if (prefSet != null) {
             prefSet.removeAll();
             prefSet.addPreference(mButtonDataRoam);
+            prefSet.addPreference(mButtonNationalDataRoam);
             prefSet.addPreference(mButtonPreferredNetworkMode);
             prefSet.addPreference(mButtonEnabledNetworks);
             prefSet.addPreference(mButton4glte);
+            prefSet.addPreference(mButtonNationalDataRoam);
         }
 
         int settingsNetworkMode = android.provider.Settings.Global.getInt(
@@ -721,6 +733,10 @@ public class MobileNetworkSettings extends PreferenceActivity
 
         // Get the networkMode from Settings.System and displays it
         mButtonDataRoam.setChecked(mPhone.getDataRoamingEnabled());
+        mButtonNationalDataRoam.setChecked(android.provider.Settings.System.getInt(
+                mPhone.getContext().getContentResolver(),
+                android.provider.Settings.System.MVNO_ROAMING, 0) == 1);
+
         mButtonEnabledNetworks.setValue(Integer.toString(settingsNetworkMode));
         mButtonPreferredNetworkMode.setValue(Integer.toString(settingsNetworkMode));
         UpdatePreferredNetworkModeSummary(settingsNetworkMode);
@@ -750,13 +766,23 @@ public class MobileNetworkSettings extends PreferenceActivity
                 R.string.enhanced_4g_lte_mode_title_variant :
                 R.string.enhanced_4g_lte_mode_title;
         mButtonDataRoam.setDisabledByAdmin(false);
+        mButtonNationalDataRoam.setDisabledByAdmin(false);
         mButtonDataRoam.setEnabled(hasActiveSubscriptions);
+        mButtonNationalDataRoam.setEnabled(hasActiveSubscriptions);
         if (mButtonDataRoam.isEnabled()) {
             if (RestrictedLockUtils.hasBaseUserRestriction(context,
                     UserManager.DISALLOW_DATA_ROAMING, UserHandle.myUserId())) {
                 mButtonDataRoam.setEnabled(false);
             } else {
                 mButtonDataRoam.checkRestrictionAndSetDisabled(UserManager.DISALLOW_DATA_ROAMING);
+            }
+        }
+        if (mButtonNationalDataRoam.isEnabled()) {
+            if (RestrictedLockUtils.hasBaseUserRestriction(context,
+                    UserManager.DISALLOW_DATA_ROAMING, UserHandle.myUserId())) {
+                mButtonNationalDataRoam.setEnabled(false);
+            } else {
+                mButtonNationalDataRoam.checkRestrictionAndSetDisabled(UserManager.DISALLOW_DATA_ROAMING);
             }
         }
         mButtonPreferredNetworkMode.setEnabled(hasActiveSubscriptions);
@@ -936,6 +962,12 @@ public class MobileNetworkSettings extends PreferenceActivity
             } else {
                 mPhone.setDataRoamingEnabled(false);
             }
+            return true;
+
+        } else if (preference == mButtonNationalDataRoam) {
+            boolean value = (Boolean) objValue;
+            android.provider.Settings.System.putInt(mPhone.getContext().getContentResolver(),
+                    android.provider.Settings.System.MVNO_ROAMING, value ? 1 : 0);
             return true;
         }
 
