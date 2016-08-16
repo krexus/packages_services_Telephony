@@ -583,7 +583,9 @@ public class NetworkSetting extends PreferenceActivity
     }
 
     private void clearList() {
-        mNetworkList.removeAll();
+        for (Preference p : mNetworkMap.keySet()) {
+            mNetworkList.removePreference(p);
+        }
         mNetworkMap.clear();
     }
 
